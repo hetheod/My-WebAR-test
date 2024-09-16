@@ -35,19 +35,31 @@
           init: function () {
             const targetEl = this.el;
             const modelEl = targetEl.querySelector('#avatarModelEntity');
-            
+
+            // Ensure the model is visible when the target is found
             targetEl.addEventListener('targetFound', function () {
               modelEl.setAttribute('visible', 'true');
             });
 
+            // Ensure the model is hidden when the target is lost
             targetEl.addEventListener('targetLost', function () {
               modelEl.setAttribute('visible', 'false');
+            });
+
+            // Adjust model attributes for better stability
+            targetEl.addEventListener('targetFound', function () {
+              modelEl.object3D.position.set(0, 0, 0);
+              modelEl.object3D.rotation.set(0, 0, 0);
             });
           }
         });
 
         document.querySelector('a-entity[mindar-image-target]').setAttribute('show-on-target', '');
       </script>
+
+      <!-- Optional Lighting to Enhance Visibility -->
+      <a-light type="ambient" color="#fff"></a-light>
+      <a-light type="directional" color="#fff" position="2 4 3"></a-light>
     </a-scene>
   </body>
 </html>
