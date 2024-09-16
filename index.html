@@ -5,29 +5,25 @@
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
   </head>
   <body>
-    <a-scene mindar-image="imageTargetSrc: ./assets/targets.mind;" color-space="sRGB" renderer="colorManagement: true, physicallyCorrectLights" vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false">
+    <a-scene color-space="sRGB" renderer="colorManagement: true, physicallyCorrectLights" vr-mode-ui="enabled: false">
       <a-assets>
         <img id="card" src="https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.2.5/examples/image-tracking/assets/card-example/card.png" />
-        <!-- No need for avatarModel asset anymore -->
+        <a-asset-item id="avatarModel" src="./assets/city.glb"></a-asset-item>
       </a-assets>
 
-      <!-- Adjusted Camera Position for Better View -->
-      <a-camera position="0 1.6 3" look-controls="pointerLockEnabled: true"></a-camera>
+      <a-camera position="0 1.6 3"></a-camera>
 
+      <!-- AR target entity, though it will not be used for the model's visibility -->
       <a-entity mindar-image-target="targetIndex: 0">
-        <!-- Image Target -->
         <a-plane src="#card" position="0 0 0" height="0.552" width="1" rotation="0 0 0"></a-plane>
-        
-        <!-- Cube for Stable Visualization -->
-        <a-box color="red" position="0 0 0.01" depth="0.5" height="0.5" width="0.5"
-               animation="property: position; to: 0 0 0.05; dur: 1000; easing: easeInOutQuad; loop: true; dir: alternate">
-        </a-box>
       </a-entity>
 
-      <!-- Optional Lighting to Enhance Visibility -->
-      <a-light type="ambient" color="#fff"></a-light>
-      <a-light type="directional" color="#fff" position="2 4 3"></a-light>
+      <!-- 3D model anchored in the scene -->
+      <a-entity position="0 0 -3">
+        <a-gltf-model rotation="0 0 0" position="0 0 0" scale="0.5 0.5 0.5" src="#avatarModel"
+          animation="property: position; to: 0 0.1 0.1; dur: 1000; easing: easeInOutQuad; loop: true; dir: alternate">
+        </a-gltf-model>
+      </a-entity>
     </a-scene>
   </body>
 </html>
-
