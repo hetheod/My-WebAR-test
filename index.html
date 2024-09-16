@@ -11,37 +11,14 @@
         <a-asset-item id="avatarModel" src="./assets/city.glb"></a-asset-item>
       </a-assets>
 
-      <a-camera position="0 1.6 3"></a-camera>
+      <a-camera position="0 1.6 5"></a-camera>
 
-      <!-- AR Target Entity -->
-      <a-entity id="ar-target" mindar-image-target="targetIndex: 0">
+      <a-entity mindar-image-target="targetIndex: 0">
         <a-plane src="#card" position="0 0 0" height="0.552" width="1" rotation="0 0 0"></a-plane>
-      </a-entity>
-
-      <!-- Model Entity -->
-      <a-entity id="model-entity" position="0 0 -3" visible="false">
-        <a-gltf-model rotation="0 0 0" position="0 0 0" scale="0.2 0.2 0.2" src="#avatarModel"
-          //animation="property: position; to: 0 0.1 0.1; dur: 1000; easing: easeInOutQuad; loop: true; dir: alternate">
+        <a-gltf-model rotation="0 0 0" position="0 0 0.1" scale="0.3 0.3 0.3" src="#avatarModel"
+         // animation="property: position; to: 0 0.1 0.1; dur: 1000; easing: easeInOutQuad; loop: true; dir: alternate">
         </a-gltf-model>
       </a-entity>
-
-      <script>
-        document.addEventListener('DOMContentLoaded', () => {
-          const arTarget = document.querySelector('#ar-target');
-          const modelEntity = document.querySelector('#model-entity');
-
-          arTarget.addEventListener('mindar-image-target-detected', () => {
-            modelEntity.setAttribute('visible', true);
-            // You may need to set the model's position relative to the detected target if needed
-            modelEntity.object3D.position.set(0, 0, 0); // Example position
-          });
-
-          arTarget.addEventListener('mindar-image-target-lost', () => {
-            // Keep the model visible in the last known position
-            // No action needed here if you want the model to remain visible
-          });
-        });
-      </script>
     </a-scene>
   </body>
 </html>
