@@ -1,7 +1,7 @@
 <html>
   <head>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
+    <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
   </head>
   <body>
@@ -11,16 +11,23 @@
         <!-- No need for avatarModel asset anymore -->
       </a-assets>
 
-      <a-camera position="0 1.6 2"></a-camera>
-S
+      <!-- Adjusted Camera Position for Better View -->
+      <a-camera position="0 1.6 3" look-controls="pointerLockEnabled: true"></a-camera>
+
       <a-entity mindar-image-target="targetIndex: 0">
+        <!-- Image Target -->
         <a-plane src="#card" position="0 0 0" height="0.552" width="1" rotation="0 0 0"></a-plane>
         
-        <!-- Replaced the model with a cube -->
-        <a-box color="red" position="0 0 0.1" depth="0.5" height="0.5" width="0.5" 
-               animation="property: position; to: 0 0.1 0.1; dur: 1000; easing: easeInOutQuad; loop: true; dir: alternate">
+        <!-- Cube for Stable Visualization -->
+        <a-box color="red" position="0 0 0.01" depth="0.5" height="0.5" width="0.5"
+               animation="property: position; to: 0 0 0.05; dur: 1000; easing: easeInOutQuad; loop: true; dir: alternate">
         </a-box>
       </a-entity>
+
+      <!-- Optional Lighting to Enhance Visibility -->
+      <a-light type="ambient" color="#fff"></a-light>
+      <a-light type="directional" color="#fff" position="2 4 3"></a-light>
     </a-scene>
   </body>
 </html>
+
