@@ -24,20 +24,25 @@
           position="0 0 0"
           scale="0.5 0.5 0.5"
           rotation="0 0 0"
-          visible="false" <!-- Initially hide the model -->
+          visible="false"
         ></a-gltf-model>
       </a-entity>
 
       <script>
         AFRAME.registerComponent('persistent-model', {
+          schema: {
+            type: 'vec3',
+            default: { x: 0, y: 0, z: 0 }
+          },
+
           init: function () {
             const targetEl = this.el;
-            const modelEl = targetEl.querySelector('#avatarModelEntity');
-            let modelPosition = null; // Store the position when target is found
+            const modelEl = document.querySelector('#avatarModelEntity');
+            let modelPosition = null; // Store the model's world position when target is found
 
             // Event listener for target detection
             targetEl.addEventListener('targetFound', function () {
-              modelPosition = modelEl.object3D.position.clone(); // Save the current position
+              modelPosition = modelEl.object3D.position.clone(); // Save the current position in world coordinates
               modelEl.setAttribute('visible', 'true'); // Show the model
             });
 
@@ -47,13 +52,6 @@
                 // Set model to the saved position
                 modelEl.object3D.position.copy(modelPosition);
                 modelEl.setAttribute('visible', 'true'); // Keep the model visible
-              }
-            });
-
-            // Optionally handle continuous updates or corrections
-            this.el.addEventListener('model-loaded', function () {
-              if (modelPosition) {
-                modelEl.object3D.position.copy(modelPosition);
               }
             });
           }
