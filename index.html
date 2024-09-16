@@ -21,40 +21,46 @@
         <a-gltf-model 
           id="avatarModelEntity"
           src="#avatarModel"
-          position="0 -5 0"
-          scale="0.2 0.2 0.2"
+          position="0 0 0"
+          scale="0.5 0.5 0.5"
           rotation="0 0 0"
-          animation="property: position; to: 0 0.1 0.1; dur: 1000; easing: easeInOutQuad; loop: true; dir: alternate"
           visible="false" <!-- Initially hide the model -->
         ></a-gltf-model>
       </a-entity>
 
-      <!-- Optional: Add event listeners to show/hide the model based on tracking -->
       <script>
-        AFRAME.registerComponent('show-on-target', {
+        AFRAME.registerComponent('persistent-model', {
           init: function () {
             const targetEl = this.el;
             const modelEl = targetEl.querySelector('#avatarModelEntity');
+            let modelPosition = null; // Store the position when target is found
 
-            // Ensure the model is visible when the target is found
+            // Event listener for target detection
             targetEl.addEventListener('targetFound', function () {
-              modelEl.setAttribute('visible', 'true');
+              modelPosition = modelEl.object3D.position.clone(); // Save the current position
+              modelEl.setAttribute('visible', 'true'); // Show the model
             });
 
-            // Ensure the model is hidden when the target is lost
+            // Event listener for target loss
             targetEl.addEventListener('targetLost', function () {
-              modelEl.setAttribute('visible', 'false');
+              if (modelPosition) {
+                // Set model to the saved position
+                modelEl.object3D.position.copy(modelPosition);
+                modelEl.setAttribute('visible', 'true'); // Keep the model visible
+              }
             });
 
-            // Adjust model attributes for better stability
-            targetEl.addEventListener('targetFound', function () {
-              modelEl.object3D.position.set(0, 0, 0);
-              modelEl.object3D.rotation.set(0, 0, 0);
+            // Optionally handle continuous updates or corrections
+            this.el.addEventListener('model-loaded', function () {
+              if (modelPosition) {
+                modelEl.object3D.position.copy(modelPosition);
+              }
             });
           }
         });
 
-        document.querySelector('a-entity[mindar-image-target]').setAttribute('show-on-target', '');
+        // Add the persistent-model component to the target entity
+        document.querySelector('a-entity[mindar-image-target]').setAttribute('persistent-model', '');
       </script>
 
       <!-- Optional Lighting to Enhance Visibility -->
