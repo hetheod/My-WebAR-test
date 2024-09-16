@@ -13,7 +13,7 @@
 
       <a-camera position="0 1.6 3"></a-camera>
 
-      <a-entity mindar-image-target="targetIndex: 0">
+      <a-entity id="targetEntity" mindar-image-target="targetIndex: 0">
         <!-- Target image plane -->
         <a-plane src="#card" position="0 0 0" height="0.552" width="1" rotation="0 0 0"></a-plane>
         
@@ -30,35 +30,29 @@
 
       <script>
         AFRAME.registerComponent('persistent-model', {
-          schema: {
-            type: 'vec3',
-            default: { x: 0, y: 0, z: 0 }
-          },
-
           init: function () {
             const targetEl = this.el;
             const modelEl = document.querySelector('#avatarModelEntity');
-            let modelPosition = null; // Store the model's world position when target is found
+            let modelWorldPosition = new THREE.Vector3(); // Store the model's world position
 
-            // Event listener for target detection
             targetEl.addEventListener('targetFound', function () {
-              modelPosition = modelEl.object3D.position.clone(); // Save the current position in world coordinates
-              modelEl.setAttribute('visible', 'true'); // Show the model
+              // Capture the model's world position when the target is found
+              modelEl.object3D.getWorldPosition(modelWorldPosition);
+              modelEl.setAttribute('visible', 'true'); // Make the model visible
             });
 
-            // Event listener for target loss
             targetEl.addEventListener('targetLost', function () {
-              if (modelPosition) {
-                // Set model to the saved position
-                modelEl.object3D.position.copy(modelPosition);
-                modelEl.setAttribute('visible', 'true'); // Keep the model visible
+              if (modelWorldPosition) {
+                // Set model to the saved world position
+                modelEl.object3D.position.copy(modelWorldPosition);
+                modelEl.setAttribute('visible', 'true'); // Ensure the model remains visible
               }
             });
           }
         });
 
         // Add the persistent-model component to the target entity
-        document.querySelector('a-entity[mindar-image-target]').setAttribute('persistent-model', '');
+        document.querySelector('#targetEntity').setAttribute('persistent-model', '');
       </script>
 
       <!-- Optional Lighting to Enhance Visibility -->
