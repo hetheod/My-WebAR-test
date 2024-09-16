@@ -18,11 +18,36 @@
         <a-plane src="#card" position="0 0 0" height="0.552" width="1" rotation="0 0 0"></a-plane>
         
         <!-- 3D model -->
-        <a-gltf-model rotation="0 0 0" position="0 0 0" scale="0.5 0.5 0.5" src="#avatarModel"
-          animation="property: position; to: 0 0.1 0.1; dur: 1000; easing: easeInOutQuad; loop: true; dir: alternate">
-        </a-gltf-model>
+        <a-gltf-model 
+          id="avatarModelEntity"
+          src="#avatarModel"
+          position="0 0 0"
+          scale="0.5 0.5 0.5"
+          rotation="0 0 0"
+          animation="property: position; to: 0 0.1 0.1; dur: 1000; easing: easeInOutQuad; loop: true; dir: alternate"
+          visible="false" <!-- Initially hide the model -->
+        ></a-gltf-model>
       </a-entity>
+
+      <!-- Optional: Add event listeners to show/hide the model based on tracking -->
+      <script>
+        AFRAME.registerComponent('show-on-target', {
+          init: function () {
+            const targetEl = this.el;
+            const modelEl = targetEl.querySelector('#avatarModelEntity');
+            
+            targetEl.addEventListener('targetFound', function () {
+              modelEl.setAttribute('visible', 'true');
+            });
+
+            targetEl.addEventListener('targetLost', function () {
+              modelEl.setAttribute('visible', 'false');
+            });
+          }
+        });
+
+        document.querySelector('a-entity[mindar-image-target]').setAttribute('show-on-target', '');
+      </script>
     </a-scene>
   </body>
 </html>
-
