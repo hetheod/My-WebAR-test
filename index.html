@@ -13,17 +13,18 @@
 
       <a-camera position="0 1.6 3"></a-camera>
 
+      <!-- The target entity that detects the image -->
       <a-entity id="targetEntity" mindar-image-target="targetIndex: 0">
-        <!-- Target image plane -->
+        <!-- Image plane, associated with the target -->
         <a-plane src="#card" position="0 0 0" height="0.552" width="1" rotation="0 0 0"></a-plane>
         
-        <!-- 3D model -->
+        <!-- 3D model to be tracked -->
         <a-gltf-model 
           id="avatarModelEntity"
           src="#avatarModel"
           position="0 0 0"
           scale="0.001 0.001 0.001"
-          rotation="0 0 90" 
+          rotation="0 0 0"
           visible="false"
         ></a-gltf-model>
       </a-entity>
@@ -31,47 +32,51 @@
       <script>
         AFRAME.registerComponent('persistent-model', {
           schema: {
-            firstTracking: { type: 'boolean', default: false }, // Keep track of first detection
-            modelWorldPosition: { type: 'vec3', default: { x: 0, y: 0, z: 0 } },
-            modelWorldRotation: { type: 'vec4', default: { x: 0, y: 0, z: 0, w: 1 } }, // Quaternion
-            modelWorldScale: { type: 'vec3', default: { x: 1, y: 1, z: 1 } }
+            trackedOnce: { type: 'boolean', default: false } // Tracks if the model has been seen once
           },
           init: function () {
-            const targetEl = this.el;
-            const modelEl = document.querySelector('#avatarModelEntity');
+            const targetEl = this.el;  // Reference to the target entity
+            const modelEl = document.querySelector('#avatarModelEntity');  // Reference to the 3D model
             const data = this.data;
+            
+            // Create objects to store the world position, rotation, and scale
+            const worldPosition = new THREE.Vector3();
+            const worldRotation = new THREE.Quaternion();
+            const worldScale = new THREE.Vector3();
 
+            // Event listener for when the image target is found
             targetEl.addEventListener('targetFound', () => {
-              if (!data.firstTracking) {
-                // First time tracking the image target
-                this.data.firstTracking = true;
+              if (!data.trackedOnce) {
+                // First time tracking the target
+                data.trackedOnce = true;
 
-                // Capture world position, rotation, and scale on the first detection
-                const worldPosition = new THREE.Vector3();
-                const worldRotation = new THREE.Quaternion();
-                const worldScale = new THREE.Vector3();
+                // Make the model visible
+                modelEl.setAttribute('visible', 'true');
 
+                // Capture the model's world position, rotation, and scale
                 modelEl.object3D.getWorldPosition(worldPosition);
                 modelEl.object3D.getWorldQuaternion(worldRotation);
                 modelEl.object3D.getWorldScale(worldScale);
 
-                // Store these values in the component schema
-                this.data.modelWorldPosition = { x: worldPosition.x, y: worldPosition.y, z: worldPosition.z };
-                this.data.modelWorldRotation = { x: worldRotation.x, y: worldRotation.y, z: worldRotation.z, w: worldRotation.w };
-                this.data.modelWorldScale = { x: worldScale.x, y: worldScale.y, z: worldScale.z };
-
-                modelEl.setAttribute('visible', 'true'); // Make the model visible
+                // Store the values in the component's data
+                data.worldPosition = { x: worldPosition.x, y: worldPosition.y, z: worldPosition.z };
+                data.worldRotation = { x: worldRotation.x, y: worldRotation.y, z: worldRotation.z, w: worldRotation.w };
+                data.worldScale = { x: worldScale.x, y: worldScale.y, z: worldScale.z };
               }
             });
 
+            // Event listener for when the image target is lost
             targetEl.addEventListener('targetLost', () => {
-              if (data.firstTracking) {
-                // On target lost, keep the model in its last known world position
-                modelEl.object3D.position.set(data.modelWorldPosition.x, data.modelWorldPosition.y, data.modelWorldPosition.z);
-                modelEl.object3D.quaternion.set(data.modelWorldRotation.x, data.modelWorldRotation.y, data.modelWorldRotation.z, data.modelWorldRotation.w);
-                modelEl.object3D.scale.set(data.modelWorldScale.x, data.modelWorldScale.y, data.modelWorldScale.z);
+              if (data.trackedOnce) {
+                // If the model has been tracked once, keep it in place
 
-                modelEl.setAttribute('visible', 'true'); // Ensure the model remains visible
+                // Set the model's position, rotation, and scale to the last known world position
+                modelEl.object3D.position.set(data.worldPosition.x, data.worldPosition.y, data.worldPosition.z);
+                modelEl.object3D.quaternion.set(data.worldRotation.x, data.worldRotation.y, data.worldRotation.z, data.worldRotation.w);
+                modelEl.object3D.scale.set(data.worldScale.x, data.worldScale.y, data.worldScale.z);
+
+                // Keep the model visible
+                modelEl.setAttribute('visible', 'true');
               }
             });
           }
@@ -81,7 +86,7 @@
         document.querySelector('#targetEntity').setAttribute('persistent-model', '');
       </script>
 
-      <!-- Optional Lighting to Enhance Visibility -->
+      <!-- Optional lighting -->
       <a-light type="ambient" color="#fff"></a-light>
       <a-light type="directional" color="#fff" position="2 4 3"></a-light>
     </a-scene>
