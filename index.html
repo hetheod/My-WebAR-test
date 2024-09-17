@@ -32,7 +32,8 @@
       <script>
         AFRAME.registerComponent('persistent-model', {
           schema: {
-            trackedOnce: { type: 'boolean', default: false } // Tracks if the model has been seen once
+            trackedOnce: { type: 'boolean', default: false }, // Tracks if the model has been tracked once
+            modelPositionFixed: { type: 'boolean', default: false } // Fixes the model position after first detection
           },
           init: function () {
             const targetEl = this.el;  // Reference to the target entity
@@ -46,31 +47,31 @@
 
             // Event listener for when the image target is found
             targetEl.addEventListener('targetFound', () => {
-              if (!data.trackedOnce) {
-                // First time tracking the target
-                data.trackedOnce = true;
-
+              // If the model position is not fixed, update it when the target is found
+              if (!data.modelPositionFixed) {
                 // Make the model visible
                 modelEl.setAttribute('visible', 'true');
 
-                // Capture the model's world position, rotation, and scale
+                // Capture the model's world position, rotation, and scale when the target is found
                 modelEl.object3D.getWorldPosition(worldPosition);
                 modelEl.object3D.getWorldQuaternion(worldRotation);
                 modelEl.object3D.getWorldScale(worldScale);
 
-                // Store the values in the component's data
+                // Store the values in the component's data to lock the model's world position
                 data.worldPosition = { x: worldPosition.x, y: worldPosition.y, z: worldPosition.z };
                 data.worldRotation = { x: worldRotation.x, y: worldRotation.y, z: worldRotation.z, w: worldRotation.w };
                 data.worldScale = { x: worldScale.x, y: worldScale.y, z: worldScale.z };
+
+                // Fix the model position after it's first detected
+                data.modelPositionFixed = true;
               }
             });
 
             // Event listener for when the image target is lost
             targetEl.addEventListener('targetLost', () => {
-              if (data.trackedOnce) {
-                // If the model has been tracked once, keep it in place
-
-                // Set the model's position, rotation, and scale to the last known world position
+              // If the model has been tracked once, keep it in its last known world position
+              if (data.modelPositionFixed) {
+                // Set the model's position, rotation, and scale to the last known values
                 modelEl.object3D.position.set(data.worldPosition.x, data.worldPosition.y, data.worldPosition.z);
                 modelEl.object3D.quaternion.set(data.worldRotation.x, data.worldRotation.y, data.worldRotation.z, data.worldRotation.w);
                 modelEl.object3D.scale.set(data.worldScale.x, data.worldScale.y, data.worldScale.z);
@@ -78,6 +79,18 @@
                 // Keep the model visible
                 modelEl.setAttribute('visible', 'true');
               }
+            });
+
+            // Ensure that the model stays in its world position on every frame
+            this.el.sceneEl.addEventListener('renderstart', () => {
+              this.el.sceneEl.addEventListener('render', () => {
+                if (data.modelPositionFixed) {
+                  // Keep the model fixed in the last known world position, rotation, and scale
+                  modelEl.object3D.position.set(data.worldPosition.x, data.worldPosition.y, data.worldPosition.z);
+                  modelEl.object3D.quaternion.set(data.worldRotation.x, data.worldRotation.y, data.worldRotation.z, data.worldRotation.w);
+                  modelEl.object3D.scale.set(data.worldScale.x, data.worldScale.y, data.worldScale.z);
+                }
+              });
             });
           }
         });
