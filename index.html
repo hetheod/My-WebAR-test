@@ -21,7 +21,7 @@
         <a-gltf-model 
           id="avatarModelEntity"
           src="#avatarModel"
-          position="1 0 1"
+          position="0 0 0"
           scale="0.001 0.001 0.001"
           rotation="0 0 90" 
           visible="false"
@@ -31,43 +31,48 @@
       <script>
         AFRAME.registerComponent('persistent-model', {
           schema: {
-            trackingActive: { type: 'boolean', default: false }
+            firstTracking: { type: 'boolean', default: false }, // Keep track of first detection
+            modelWorldPosition: { type: 'vec3', default: { x: 0, y: 0, z: 0 } },
+            modelWorldRotation: { type: 'vec4', default: { x: 0, y: 0, z: 0, w: 1 } }, // Quaternion
+            modelWorldScale: { type: 'vec3', default: { x: 1, y: 1, z: 1 } }
           },
           init: function () {
             const targetEl = this.el;
             const modelEl = document.querySelector('#avatarModelEntity');
-            let modelWorldPosition = new THREE.Vector3(); // Store the model's world position
-            let modelWorldRotation = new THREE.Quaternion(); // Store the model's rotation
-            let modelWorldScale = new THREE.Vector3(); // Store the model's scale
+            const data = this.data;
 
             targetEl.addEventListener('targetFound', () => {
-              this.data.trackingActive = true;
-              modelEl.setAttribute('visible', 'true'); // Make the model visible
+              if (!data.firstTracking) {
+                // First time tracking the image target
+                this.data.firstTracking = true;
+
+                // Capture world position, rotation, and scale on the first detection
+                const worldPosition = new THREE.Vector3();
+                const worldRotation = new THREE.Quaternion();
+                const worldScale = new THREE.Vector3();
+
+                modelEl.object3D.getWorldPosition(worldPosition);
+                modelEl.object3D.getWorldQuaternion(worldRotation);
+                modelEl.object3D.getWorldScale(worldScale);
+
+                // Store these values in the component schema
+                this.data.modelWorldPosition = { x: worldPosition.x, y: worldPosition.y, z: worldPosition.z };
+                this.data.modelWorldRotation = { x: worldRotation.x, y: worldRotation.y, z: worldRotation.z, w: worldRotation.w };
+                this.data.modelWorldScale = { x: worldScale.x, y: worldScale.y, z: worldScale.z };
+
+                modelEl.setAttribute('visible', 'true'); // Make the model visible
+              }
             });
 
             targetEl.addEventListener('targetLost', () => {
-              this.data.trackingActive = false;
-              modelEl.object3D.getWorldPosition(modelWorldPosition);
-              modelEl.object3D.getWorldQuaternion(modelWorldRotation);
-              modelEl.object3D.getWorldScale(modelWorldScale);
+              if (data.firstTracking) {
+                // On target lost, keep the model in its last known world position
+                modelEl.object3D.position.set(data.modelWorldPosition.x, data.modelWorldPosition.y, data.modelWorldPosition.z);
+                modelEl.object3D.quaternion.set(data.modelWorldRotation.x, data.modelWorldRotation.y, data.modelWorldRotation.z, data.modelWorldRotation.w);
+                modelEl.object3D.scale.set(data.modelWorldScale.x, data.modelWorldScale.y, data.modelWorldScale.z);
 
-              // Ensure the model remains in the last tracked position, rotation, and scale
-              modelEl.object3D.position.copy(modelWorldPosition);
-              modelEl.object3D.quaternion.copy(modelWorldRotation);
-              modelEl.object3D.scale.copy(modelWorldScale);
-
-              modelEl.setAttribute('visible', 'true'); // Keep the model visible
-            });
-
-            // Keep updating the model's world position, rotation, and scale while tracking is active
-            this.el.sceneEl.addEventListener('renderstart', () => {
-              this.el.sceneEl.addEventListener('render', () => {
-                if (this.data.trackingActive) {
-                  modelEl.object3D.getWorldPosition(modelWorldPosition);
-                  modelEl.object3D.getWorldQuaternion(modelWorldRotation);
-                  modelEl.object3D.getWorldScale(modelWorldScale);
-                }
-              });
+                modelEl.setAttribute('visible', 'true'); // Ensure the model remains visible
+              }
             });
           }
         });
