@@ -7,17 +7,51 @@
   <body>
     <a-scene mindar-image="imageTargetSrc: ./assets/targets.mind" color-space="sRGB" renderer="colorManagement: true, physicallyCorrectLights" vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false">
       <a-assets>
-	<img id="card" src="./assets/Tracking_Image_Mitja.jpg" />
-	<a-asset-item id="avatarModel" src="./assets/city.glb"></a-asset-item>
+        <img id="card" src="./assets/Tracking_Image_Mitja.jpg" />
+        <a-asset-item id="avatarModel" src="./assets/city.glb"></a-asset-item>
       </a-assets>
 
       <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
-      <a-entity mindar-image-target="targetIndex: 0">
+      <a-entity mindar-image-target="targetIndex: 0" id="imageTarget">
         <a-plane src="#card" position="0 0 0" height="0.552" width="1" rotation="0 0 0"></a-plane>
-        <a-gltf-model rotation="90 90 90" position="0 0 0" scale="0.0005 0.0005 0.0005" src="#avatarModel">
-        </a-gltf-model>
+        <a-gltf-model id="model" rotation="90 90 90" position="0 0 0" scale="0.0005 0.0005 0.0005" src="#avatarModel"></a-gltf-model>
       </a-entity>
     </a-scene>
+
+    <script>
+      AFRAME.registerComponent('anchor-on-target-lost', {
+        init: function () {
+          const imageTarget = this.el;
+          const model = document.querySelector('#model');
+          const modelEl = model.object3D;
+          let modelWorldPosition = new THREE.Vector3();
+          let modelOffset = new THREE.Vector3();
+
+          imageTarget.addEventListener('targetFound', () => {
+            // Show the model and capture the world position
+            model.setAttribute('visible', 'true');
+            
+            // Get the world position of the model relative to the image target
+            const targetWorldPosition = new THREE.Vector3();
+            imageTarget.object3D.getWorldPosition(targetWorldPosition);
+            modelWorldPosition.copy(modelEl.getWorldPosition(new THREE.Vector3()));
+            modelOffset.copy(modelWorldPosition).sub(targetWorldPosition);
+          });
+
+          imageTarget.addEventListener('targetLost', () => {
+            // Calculate the new position based on the offset
+            const newWorldPosition = new THREE.Vector3().copy(modelOffset).add(imageTarget.object3D.getWorldPosition(new THREE.Vector3()));
+            modelEl.position.copy(newWorldPosition);
+            modelEl.updateMatrixWorld(true);
+            // Keep the model visible and in place
+          });
+        }
+      });
+
+      // Apply the custom component to manage model anchoring
+      document.querySelector('#imageTarget').setAttribute('anchor-on-target-lost', '');
+    </script>
   </body>
 </html>
+
