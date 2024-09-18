@@ -29,27 +29,31 @@
         init: function () {
           const imageTarget = document.querySelector('#imageTarget');
           const model = document.querySelector('#persistentModel');
+          const modelEl = model.querySelector('#model');
+          let modelOffset = new THREE.Vector3();
           
-          // Listen for when the target is found
+          // When the target is found
           imageTarget.addEventListener('targetFound', () => {
-            model.setAttribute('visible', 'true'); // Show the model
-            const targetPosition = new THREE.Vector3();
-            const modelPosition = new THREE.Vector3();
+            // Show the model
+            model.setAttribute('visible', 'true');
             
-            // Capture the world position of the model relative to the target
-            imageTarget.object3D.getWorldPosition(targetPosition);
-            model.object3D.getWorldPosition(modelPosition);
+            // Calculate and store the offset between model and target
+            const targetWorldPos = new THREE.Vector3();
+            const modelWorldPos = new THREE.Vector3();
+            imageTarget.object3D.getWorldPosition(targetWorldPos);
+            modelEl.object3D.getWorldPosition(modelWorldPos);
+            modelOffset.copy(modelWorldPos).sub(targetWorldPos);
             
-            // Store the model's offset from the target
-            modelPosition.sub(targetPosition);
-            model.setAttribute('data-offset', JSON.stringify(modelPosition));
+            // Store the offset as an attribute
+            model.setAttribute('data-offset', JSON.stringify(modelOffset.toArray()));
           });
 
-          // When the target is lost, move the model to its last known position
+          // When the target is lost
           imageTarget.addEventListener('targetLost', () => {
             const offset = JSON.parse(model.getAttribute('data-offset'));
-            const modelPosition = new THREE.Vector3().fromArray(offset);
-            model.object3D.position.set(modelPosition.x, modelPosition.y, modelPosition.z);
+            const newWorldPos = new THREE.Vector3().fromArray(offset);
+            modelEl.object3D.position.copy(newWorldPos);
+            modelEl.object3D.updateMatrixWorld(true);
           });
         }
       });
