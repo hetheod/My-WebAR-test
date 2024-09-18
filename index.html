@@ -23,6 +23,7 @@
       let targetImage = null;
       let videoReady = false;
       let trackingImageDetected = false;
+      let detector, keypoints1, descriptors1;
 
       function init() {
         // Three.js setup
@@ -66,12 +67,21 @@
 
         // Load the target image for tracking
         const img = new Image();
-        img.src = './assets/Tracking_Image_Mitja.jpg'; // The image to track
+        img.src = './assets/targets/targetImage.jpg'; // The image to track
         img.onload = function () {
           targetImage = cv.imread(img); // Load target image into OpenCV
+          initializeFeatureDetection();
         };
 
         animate();
+      }
+
+      // Initialize ORB feature detector for the target image
+      function initializeFeatureDetection() {
+        detector = new cv.ORB(); // ORB detector
+        keypoints1 = new cv.KeyPointVector();
+        descriptors1 = new cv.Mat();
+        detector.detectAndCompute(targetImage, new cv.Mat(), keypoints1, descriptors1);
       }
 
       // OpenCV image detection and tracking logic
@@ -83,11 +93,6 @@
         const src = cv.imread(canvas); // Read video frame as an OpenCV Mat
 
         // Image recognition using OpenCV (ORB/SIFT-like feature matching)
-        let detector = new cv.ORB();
-        let keypoints1 = new cv.KeyPointVector();
-        let descriptors1 = new cv.Mat();
-        detector.detectAndCompute(targetImage, new cv.Mat(), keypoints1, descriptors1);
-
         let keypoints2 = new cv.KeyPointVector();
         let descriptors2 = new cv.Mat();
         detector.detectAndCompute(src, new cv.Mat(), keypoints2, descriptors2);
@@ -112,8 +117,11 @@
         if (detectImage()) {
           // If image is detected, update the 3D model's position and visibility
           model.visible = true;
+
           // In a real case, calculate where to place the model based on keypoints or homography
           model.position.set(0, 0, 0); // Simplified: Set model's position relative to the image detection
+
+          // Optionally, calculate homography here and adjust model position/rotation
         } else {
           model.visible = false; // Hide model if image is not detected
         }
