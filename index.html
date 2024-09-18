@@ -1,68 +1,104 @@
-<html>
-  <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
-  </head>
-  <body>
-    <a-scene mindar-image="imageTargetSrc: ./assets/targets.mind" color-space="sRGB" renderer="colorManagement: true, physicallyCorrectLights" vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false">
-      <a-assets>
-        <img id="card" src="./assets/Tracking_Image_Mitja.jpg" />
-        <a-asset-item id="avatarModel" src="./assets/city.glb"></a-asset-item>
-      </a-assets>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Template Matching with Three.js</title>
+    <style>
+        body { margin: 0; overflow: hidden; }
+        video { display: none; }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/GLTFLoader.js"></script>
+</head>
+<body>
+    <video id="video" width="640" height="480" autoplay></video>
+    <canvas id="canvas"></canvas>
+    <script>
+        // Set up video capture
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const context = canvas.getContext('2d');
 
-      <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+        navigator.mediaDevices.getUserMedia({ video: true })
+            .then(stream => {
+                video.srcObject = stream;
+                video.play();
+            });
 
-      <a-entity id="target" mindar-image-target="targetIndex: 0">
-        <a-plane src="#card" position="0 0 0" height="0.552" width="1" rotation="0 0 0"></a-plane>
-        <a-gltf-model id="model" src="#avatarModel" position="0 0 0" rotation="0 0 0" scale="0.0001 0.0001 0.0001"></a-gltf-model>
-      </a-entity>
+        // Set up Three.js
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
 
-      <script>
-        AFRAME.registerComponent('smooth-motion', {
-          schema: {
-            smoothingFactor: {type: 'number', default: 0.1}, // Smoothing factor
-            frequency: {type: 'number', default: 60} // Frequency of smoothing update (frames per second)
-          },
-          init: function () {
-            this.previousPosition = new THREE.Vector3();
-            this.currentPosition = new THREE.Vector3();
-            this.lastUpdate = Date.now();
-          },
-          tick: function () {
-            var el = this.el;
-            var data = this.data;
-            var smoothingFactor = data.smoothingFactor;
-            var frequency = data.frequency;
+        // Add a light source
+        const light = new THREE.DirectionalLight(0xffffff, 1);
+        light.position.set(1, 1, 1).normalize();
+        scene.add(light);
 
-            var now = Date.now();
-            if (now - this.lastUpdate > (1000 / frequency)) {
-              // Get the current position of the model
-              var targetPosition = el.getAttribute('position');
-
-              // Convert position to THREE.Vector3
-              this.currentPosition.set(targetPosition.x, targetPosition.y, targetPosition.z);
-
-              // Smooth the position using Exponential Moving Average
-              this.previousPosition.x += smoothingFactor * (this.currentPosition.x - this.previousPosition.x);
-              this.previousPosition.y += smoothingFactor * (this.currentPosition.y - this.previousPosition.y);
-              this.previousPosition.z += smoothingFactor * (this.currentPosition.z - this.previousPosition.z);
-
-              // Set the smoothed position
-              el.setAttribute('position', {
-                x: this.previousPosition.x,
-                y: this.previousPosition.y,
-                z: this.previousPosition.z
-              });
-
-              this.lastUpdate = now;
-            }
-          }
+        // Load the 3D model
+        const loader = new THREE.GLTFLoader();
+        let model;
+        loader.load('./assets/city.glb', gltf => {
+            model = gltf.scene;
+            model.scale.set(0.01, 0.01, 0.01);
+            scene.add(model);
         });
 
-        // Attach the smoothing component to the model
-        document.querySelector('#model').setAttribute('smooth-motion', 'smoothingFactor', 0.1);
-      </script>
-    </a-scene>
-  </body>
+        camera.position.z = 5;
+
+        // Template matching logic
+        const targetImage = new Image();
+        targetImage.src = './assets/Tracking_Image_Mitja.jpg'; // Your target image
+
+        function compareImages(videoFrame, targetImage, threshold = 0.1) {
+            context.drawImage(videoFrame, 0, 0, canvas.width, canvas.height);
+            const frameData = context.getImageData(0, 0, canvas.width, canvas.height);
+
+            context.drawImage(targetImage, 0, 0, targetImage.width, targetImage.height);
+            const targetData = context.getImageData(0, 0, targetImage.width, targetImage.height);
+
+            let diff = 0;
+            for (let i = 0; i < frameData.data.length; i += 4) {
+                const rDiff = Math.abs(frameData.data[i] - targetData.data[i]);
+                const gDiff = Math.abs(frameData.data[i + 1] - targetData.data[i + 1]);
+                const bDiff = Math.abs(frameData.data[i + 2] - targetData.data[i + 2]);
+                diff += rDiff + gDiff + bDiff;
+            }
+
+            return (diff / frameData.data.length < threshold);
+        }
+
+        function processFrame() {
+            if (compareImages(video, targetImage)) {
+                console.log('Image detected!');
+                if (model) {
+                    // Position the model in the scene when the image is detected
+                    model.position.set(0, 0, -5);
+                }
+            } else {
+                if (model) {
+                    // Hide the model if the image is not detected
+                    model.position.set(0, 0, -100); // Move the model out of view
+                }
+            }
+            requestAnimationFrame(processFrame);
+        }
+
+        targetImage.onload = () => {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            processFrame();
+        };
+
+        function animate() {
+            requestAnimationFrame(animate);
+            renderer.render(scene, camera);
+        }
+
+        animate();
+    </script>
+</body>
 </html>
