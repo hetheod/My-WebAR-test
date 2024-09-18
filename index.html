@@ -15,14 +15,14 @@
 
       <a-entity id="target" mindar-image-target="targetIndex: 0">
         <a-plane src="#card" position="0 0 0" height="0.552" width="1" rotation="0 0 0"></a-plane>
-        <a-gltf-model id="model" src="#avatarModel" position="0 0 0" rotation="0 0 0" scale="0.0001 0.0001 0.0001"></a-gltf-model>
+        <a-gltf-model id="model" src="#avatarModel" position="0 0 0" rotation="0 0 0" scale="0.1 0.1 0.1"></a-gltf-model>
       </a-entity>
 
       <script>
         AFRAME.registerComponent('smooth-motion', {
           schema: {
-            smoothing: {type: 'number', default: 0.1}, // Smoothing factor
-            frequency: {type: 'number', default: 10} // Frequency of smoothing update
+            smoothingFactor: {type: 'number', default: 0.1}, // Smoothing factor
+            frequency: {type: 'number', default: 60} // Frequency of smoothing update (frames per second)
           },
           init: function () {
             this.previousPosition = new THREE.Vector3();
@@ -32,7 +32,7 @@
           tick: function () {
             var el = this.el;
             var data = this.data;
-            var smoothing = data.smoothing;
+            var smoothingFactor = data.smoothingFactor;
             var frequency = data.frequency;
 
             var now = Date.now();
@@ -43,8 +43,10 @@
               // Convert position to THREE.Vector3
               this.currentPosition.set(targetPosition.x, targetPosition.y, targetPosition.z);
 
-              // Smooth the position using linear interpolation
-              this.previousPosition.lerp(this.currentPosition, smoothing);
+              // Smooth the position using Exponential Moving Average
+              this.previousPosition.x += smoothingFactor * (this.currentPosition.x - this.previousPosition.x);
+              this.previousPosition.y += smoothingFactor * (this.currentPosition.y - this.previousPosition.y);
+              this.previousPosition.z += smoothingFactor * (this.currentPosition.z - this.previousPosition.z);
 
               // Set the smoothed position
               el.setAttribute('position', {
@@ -59,7 +61,7 @@
         });
 
         // Attach the smoothing component to the model
-        document.querySelector('#model').setAttribute('smooth-motion', 'smoothing', 0.1);
+        document.querySelector('#model').setAttribute('smooth-motion', 'smoothingFactor', 0.1);
       </script>
     </a-scene>
   </body>
