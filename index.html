@@ -15,32 +15,38 @@
 
       <a-entity mindar-image-target="targetIndex: 0" id="imageTarget">
         <a-plane src="#card" position="0 0 0" height="0.552" width="1" rotation="0 0 0"></a-plane>
-        <a-gltf-model id="model" rotation="90 90 90" position="0 0 0" scale="0.0005 0.0005 0.0005" src="#avatarModel">
-        </a-gltf-model>
+        <a-gltf-model id="model" rotation="90 90 90" position="0 0 0" scale="0.0005 0.0005 0.0005" src="#avatarModel"></a-gltf-model>
       </a-entity>
     </a-scene>
 
     <script>
-      AFRAME.registerComponent('keep-visible', {
+      AFRAME.registerComponent('keep-position', {
+        schema: {
+          type: 'vec3',
+          default: {x: 0, y: 0, z: 0}
+        },
+
         init: function () {
-          const imageTarget = this.el;  // The image target entity
+          const imageTarget = this.el; // The image target entity
           const model = document.querySelector('#model'); // The 3D model
 
-          imageTarget.addEventListener('targetFound', function () {
-            // Make the model visible when the image target is found
-            model.setAttribute('visible', 'true');
+          // Update model position when the target is found
+          imageTarget.addEventListener('targetFound', () => {
+            // Capture the world position of the model
+            const modelPosition = model.object3D.getWorldPosition(new THREE.Vector3());
+            this.data.set(modelPosition.x, modelPosition.y, modelPosition.z);
           });
 
-          imageTarget.addEventListener('targetLost', function () {
-            // When the target is lost, keep the model visible
-            // Remove the visibility toggle that MindAR automatically applies
-            model.setAttribute('visible', 'true');
+          // Keep the model at the captured position
+          imageTarget.addEventListener('targetLost', () => {
+            const modelPosition = new THREE.Vector3().fromArray(this.data);
+            model.object3D.position.set(modelPosition.x, modelPosition.y, modelPosition.z);
           });
         }
       });
 
       // Apply the custom component to the image target
-      document.querySelector('#imageTarget').setAttribute('keep-visible', '');
+      document.querySelector('#imageTarget').setAttribute('keep-position', '');
     </script>
   </body>
 </html>
