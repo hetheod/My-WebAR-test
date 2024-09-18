@@ -14,39 +14,47 @@
       <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
       <a-entity id="target" mindar-image-target="targetIndex: 0">
-       // <a-plane src="#card" position="0 0 0" height="0.552" width="1" rotation="0 0 0"></a-plane>
-        <a-gltf-model id="model" src="#avatarModel" position="0 0 0" rotation="0 0 0" scale="0.001 0.001 0.001"></a-gltf-model>
+        <a-plane src="#card" position="0 0 0" height="0.552" width="1" rotation="0 0 0"></a-plane>
+        <a-gltf-model id="model" src="#avatarModel" position="0 0 0" rotation="0 0 0" scale="0.0001 0.0001 0.0001"></a-gltf-model>
       </a-entity>
 
       <script>
         AFRAME.registerComponent('smooth-motion', {
           schema: {
-            smoothing: {type: 'number', default: 0.1} // Adjust the smoothing factor as needed
+            smoothing: {type: 'number', default: 0.1}, // Smoothing factor
+            frequency: {type: 'number', default: 10} // Frequency of smoothing update
           },
           init: function () {
             this.previousPosition = new THREE.Vector3();
             this.currentPosition = new THREE.Vector3();
+            this.lastUpdate = Date.now();
           },
           tick: function () {
             var el = this.el;
             var data = this.data;
             var smoothing = data.smoothing;
+            var frequency = data.frequency;
 
-            // Get the current position of the model
-            var targetPosition = el.getAttribute('position');
+            var now = Date.now();
+            if (now - this.lastUpdate > (1000 / frequency)) {
+              // Get the current position of the model
+              var targetPosition = el.getAttribute('position');
 
-            // Convert position to THREE.Vector3
-            this.currentPosition.set(targetPosition.x, targetPosition.y, targetPosition.z);
+              // Convert position to THREE.Vector3
+              this.currentPosition.set(targetPosition.x, targetPosition.y, targetPosition.z);
 
-            // Smooth the position using linear interpolation
-            this.previousPosition.lerp(this.currentPosition, smoothing);
+              // Smooth the position using linear interpolation
+              this.previousPosition.lerp(this.currentPosition, smoothing);
 
-            // Set the smoothed position
-            el.setAttribute('position', {
-              x: this.previousPosition.x,
-              y: this.previousPosition.y,
-              z: this.previousPosition.z
-            });
+              // Set the smoothed position
+              el.setAttribute('position', {
+                x: this.previousPosition.x,
+                y: this.previousPosition.y,
+                z: this.previousPosition.z
+              });
+
+              this.lastUpdate = now;
+            }
           }
         });
 
