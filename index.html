@@ -5,7 +5,7 @@
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
   </head>
   <body>
-    <a-scene mindar-image="imageTargetSrc: ./assets/targets (2).mind" color-space="sRGB" renderer="colorManagement: true, physicallyCorrectLights" vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false">
+    <a-scene mindar-image="imageTargetSrc: ./assets/targets.mind" color-space="sRGB" renderer="colorManagement: true, physicallyCorrectLights" vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false">
       <a-assets>
         <img id="card" src="./assets/Tracking_Image_Mitja.jpg" />
         <a-asset-item id="avatarModel" src="./assets/city.glb"></a-asset-item>
@@ -24,11 +24,13 @@
           schema: {
             smoothingFactor: {type: 'number', default: 0.1}, // Smoothing factor
             frequency: {type: 'number', default: 60}, // Frequency of update (fps)
-            threshold: {type: 'number', default: 0.01} // Minimum change before updating
+            threshold: {type: 'number', default: 0.01}, // Minimum change before updating
           },
           init: function () {
             this.previousPosition = new THREE.Vector3();
+            this.previousRotation = new THREE.Euler();
             this.currentPosition = new THREE.Vector3();
+            this.currentRotation = new THREE.Euler();
             this.lastUpdate = Date.now();
           },
           tick: function () {
@@ -37,20 +39,34 @@
             var now = Date.now();
 
             if (now - this.lastUpdate > (1000 / data.frequency)) {
+              // Get current position and rotation
               var targetPosition = el.getAttribute('position');
+              var targetRotation = el.getAttribute('rotation');
+              
               this.currentPosition.set(targetPosition.x, targetPosition.y, targetPosition.z);
+              this.currentRotation.set(targetRotation.x, targetRotation.y, targetRotation.z);
 
-              // Calculate the difference between current and previous position
+              // Calculate the distance between current and previous positions
               var distance = this.previousPosition.distanceTo(this.currentPosition);
 
-              // Only update if the distance exceeds the threshold
+              // Only update if the position change exceeds the threshold
               if (distance > data.threshold) {
                 // Smooth the position
                 this.previousPosition.lerp(this.currentPosition, data.smoothingFactor);
-
-                // Set the new position
                 el.setAttribute('position', this.previousPosition);
               }
+
+              // Smooth the rotation
+              this.previousRotation.set(
+                THREE.MathUtils.lerp(this.previousRotation.x, this.currentRotation.x, data.smoothingFactor),
+                THREE.MathUtils.lerp(this.previousRotation.y, this.currentRotation.y, data.smoothingFactor),
+                THREE.MathUtils.lerp(this.previousRotation.z, this.currentRotation.z, data.smoothingFactor)
+              );
+              el.setAttribute('rotation', {
+                x: THREE.Math.radToDeg(this.previousRotation.x),
+                y: THREE.Math.radToDeg(this.previousRotation.y),
+                z: THREE.Math.radToDeg(this.previousRotation.z)
+              });
 
               this.lastUpdate = now;
             }
@@ -62,6 +78,8 @@
           init: function () {
             this.isFrozen = false;
             this.initialPosition = null;
+            this.framesStable = 0;
+            this.stableThreshold = 10; // Number of frames to consider stable
           },
           tick: function () {
             var el = this.el;
@@ -72,22 +90,29 @@
                 this.initialPosition = new THREE.Vector3(targetPosition.x, targetPosition.y, targetPosition.z);
               }
 
-              // Freeze the position after detection
+              // Check if the position is stable for a certain number of frames
               if (this.isStable(targetPosition)) {
-                this.isFrozen = true;
-                el.setAttribute('position', this.initialPosition);
+                this.framesStable++;
+                if (this.framesStable > this.stableThreshold) {
+                  this.isFrozen = true;
+                  el.setAttribute('position', this.initialPosition);
+                }
+              } else {
+                this.framesStable = 0; // Reset stability counter if unstable
               }
             }
           },
           isStable: function (position) {
-            // Logic to determine stability. You can customize this as needed.
-            // For example, if the model position has been stable for a few frames.
-            return true;
+            // Custom logic to determine if the position is stable.
+            // For example, you can check if the position hasn't changed significantly over multiple frames
+            var currentPosition = new THREE.Vector3(position.x, position.y, position.z);
+            var distance = this.initialPosition.distanceTo(currentPosition);
+            return distance < 0.001; // Small threshold for stability
           }
         });
 
         // Attach the smoothing component to the model with custom smoothingFactor
-        document.querySelector('#model').setAttribute('smooth-motion', 'smoothingFactor', 0.3);
+        document.querySelector('#model').setAttribute('smooth-motion', 'smoothingFactor', 0.5);
       </script>
     </a-scene>
   </body>
