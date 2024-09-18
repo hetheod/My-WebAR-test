@@ -34,6 +34,11 @@
             this.lastUpdate = Date.now();
           },
           tick: function () {
+            if (this.el.components['freeze-motion'] && this.el.components['freeze-motion'].isFrozen) {
+              // Stop updating if the object is frozen
+              return;
+            }
+
             var el = this.el;
             var data = this.data;
             var now = Date.now();
@@ -82,29 +87,31 @@
             this.stableThreshold = 10; // Number of frames to consider stable
           },
           tick: function () {
-            var el = this.el;
-            if (!this.isFrozen) {
-              var targetPosition = el.getAttribute('position');
-              
-              if (!this.initialPosition) {
-                this.initialPosition = new THREE.Vector3(targetPosition.x, targetPosition.y, targetPosition.z);
-              }
+            if (this.isFrozen) {
+              return; // Do nothing if already frozen
+            }
 
-              // Check if the position is stable for a certain number of frames
-              if (this.isStable(targetPosition)) {
-                this.framesStable++;
-                if (this.framesStable > this.stableThreshold) {
-                  this.isFrozen = true;
-                  el.setAttribute('position', this.initialPosition);
-                }
-              } else {
-                this.framesStable = 0; // Reset stability counter if unstable
+            var el = this.el;
+            var targetPosition = el.getAttribute('position');
+              
+            if (!this.initialPosition) {
+              this.initialPosition = new THREE.Vector3(targetPosition.x, targetPosition.y, targetPosition.z);
+            }
+
+            // Check if the position is stable for a certain number of frames
+            if (this.isStable(targetPosition)) {
+              this.framesStable++;
+              if (this.framesStable > this.stableThreshold) {
+                this.isFrozen = true;
+                el.setAttribute('position', this.initialPosition); // Freeze at the initial position
+                el.removeAttribute('mindar-image-target'); // Remove the MindAR tracking component
               }
+            } else {
+              this.framesStable = 0; // Reset stability counter if unstable
             }
           },
           isStable: function (position) {
             // Custom logic to determine if the position is stable.
-            // For example, you can check if the position hasn't changed significantly over multiple frames
             var currentPosition = new THREE.Vector3(position.x, position.y, position.z);
             var distance = this.initialPosition.distanceTo(currentPosition);
             return distance < 0.001; // Small threshold for stability
