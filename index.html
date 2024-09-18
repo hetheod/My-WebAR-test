@@ -1,68 +1,113 @@
-<html>
-  <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
-  </head>
-  <body>
-    <a-scene mindar-image="imageTargetSrc: ./assets/targets.mind" color-space="sRGB" renderer="colorManagement: true, physicallyCorrectLights" vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false">
-      <a-assets>
-        <img id="card" src="./assets/Tracking_Image_Mitja.jpg" />
-        <a-asset-item id="avatarModel" src="./assets/city.glb"></a-asset-item>
-      </a-assets>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>MindAR Model Persistence Example</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
 
-      <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+  <!-- A-Frame Library -->
+  <script src="https://aframe.io/releases/1.3.0/aframe.min.js"></script>
 
-      <a-entity id="target" mindar-image-target="targetIndex: 0">
-        <a-plane src="#card" position="0 0 0" height="0.552" width="1" rotation="0 0 0"></a-plane>
-        <a-gltf-model id="model" src="#avatarModel" position="0 0 0" rotation="0 0 0" scale="0.0001 0.0001 0.0001"></a-gltf-model>
-      </a-entity>
+  <!-- MindAR Library -->
+  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.3.1/dist/mindar-image-aframe.prod.js"></script>
+</head>
+<body>
+  <!-- A-Frame Scene with MindAR Configuration -->
+  <a-scene
+    mindar-image="imageTargetSrc: ./assets/targets.mind; autoStart: true; smoothCount: 10; smoothTolerance: 0.01;"
+    embedded
+    color-space="sRGB"
+    renderer="colorManagement: true, physicallyCorrectLights"
+    vr-mode-ui="enabled: false"
+    device-orientation-permission-ui="enabled: true"
+  >
+    <!-- Asset Management System -->
+    <a-assets>
+      <!-- Image Target for Reference (Optional) -->
+      <img id="card" src="./assets/Tracking_Image_Mitja.jpg" />
+      <!-- 3D Model Asset -->
+      <a-asset-item id="avatarModel" src="./assets/city.glb"></a-asset-item>
+    </a-assets>
 
-      <script>
-        AFRAME.registerComponent('smooth-motion', {
-          schema: {
-            smoothingFactor: {type: 'number', default: 0.1}, // Smoothing factor
-            frequency: {type: 'number', default: 60} // Frequency of smoothing update (frames per second)
-          },
-          init: function () {
-            this.previousPosition = new THREE.Vector3();
-            this.currentPosition = new THREE.Vector3();
-            this.lastUpdate = Date.now();
-          },
-          tick: function () {
-            var el = this.el;
-            var data = this.data;
-            var smoothingFactor = data.smoothingFactor;
-            var frequency = data.frequency;
+    <!-- Camera -->
+    <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
-            var now = Date.now();
-            if (now - this.lastUpdate > (1000 / frequency)) {
-              // Get the current position of the model
-              var targetPosition = el.getAttribute('position');
+    <!-- MindAR Image Target Entity -->
+    <a-entity mindar-image-target="targetIndex: 0" id="target-container">
+      <!-- Reference Plane (Optional) -->
+      <a-plane
+        src="#card"
+        position="0 0 0"
+        height="0.552"
+        width="1"
+        rotation="0 0 0"
+      ></a-plane>
 
-              // Convert position to THREE.Vector3
-              this.currentPosition.set(targetPosition.x, targetPosition.y, targetPosition.z);
+      <!-- 3D Model -->
+      <a-gltf-model
+        id="model"
+        src="#avatarModel"
+        position="0 0 0"
+        rotation="90 90 90"
+        scale="0.0005 0.0005 0.0005"
+      ></a-gltf-model>
+    </a-entity>
+  </a-scene>
 
-              // Smooth the position using Exponential Moving Average
-              this.previousPosition.x += smoothingFactor * (this.currentPosition.x - this.previousPosition.x);
-              this.previousPosition.y += smoothingFactor * (this.currentPosition.y - this.previousPosition.y);
-              this.previousPosition.z += smoothingFactor * (this.currentPosition.z - this.previousPosition.z);
+  <!-- Script to Handle Model Persistence -->
+  <script>
+    AFRAME.registerComponent('persist-model', {
+      init: function () {
+        const targetContainer = this.el; // The entity with mindar-image-target
+        const sceneEl = this.el.sceneEl;
+        const model = document.getElementById('model');
+        let isPersisted = false; // Flag to check if the model is persisted
 
-              // Set the smoothed position
-              el.setAttribute('position', {
-                x: this.previousPosition.x,
-                y: this.previousPosition.y,
-                z: this.previousPosition.z
-              });
+        // Event Listener for targetLost
+        targetContainer.addEventListener('targetLost', () => {
+          if (!isPersisted) {
+            // Capture the model's world position and rotation
+            const worldPos = new THREE.Vector3();
+            const worldQuat = new THREE.Quaternion();
+            model.object3D.getWorldPosition(worldPos);
+            model.object3D.getWorldQuaternion(worldQuat);
 
-              this.lastUpdate = now;
-            }
+            // Remove the model from the target container and add it directly to the scene
+            targetContainer.removeChild(model);
+            sceneEl.appendChild(model);
+
+            // Set the model's world position and rotation
+            model.object3D.position.copy(worldPos);
+            model.object3D.quaternion.copy(worldQuat);
+
+            // Ensure the model is visible
+            model.setAttribute('visible', 'true');
+
+            isPersisted = true; // Update the flag
           }
         });
 
-        // Attach the smoothing component to the model
-        document.querySelector('#model').setAttribute('smooth-motion', 'smoothingFactor', 0.1);
-      </script>
-    </a-scene>
-  </body>
+        // Event Listener for targetFound
+        targetContainer.addEventListener('targetFound', () => {
+          if (isPersisted) {
+            // Remove the model from the scene
+            sceneEl.removeChild(model);
+
+            // Reset model's position and rotation
+            model.setAttribute('position', '0 0 0');
+            model.setAttribute('rotation', '90 90 90');
+
+            // Reparent the model back to the target container
+            targetContainer.appendChild(model);
+
+            isPersisted = false; // Update the flag
+          }
+        });
+      },
+    });
+
+    // Attach the component to the target container
+    document.getElementById('target-container').setAttribute('persist-model', '');
+  </script>
+</body>
 </html>
