@@ -15,62 +15,44 @@
 
       <a-entity id="target" mindar-image-target="targetIndex: 0">
         <a-plane src="#card" position="0 0 0" height="0.552" width="1" rotation="0 0 0"></a-plane>
-        <a-gltf-model id="model" src="#avatarModel" position="0 0 0" rotation="0 0 0" scale="0.0001 0.0001 0.0001" smooth-motion freeze-motion></a-gltf-model>
+        <a-gltf-model id="model" src="#avatarModel" position="0 0 0" rotation="0 0 0" scale="0.0001 0.0001 0.0001"></a-gltf-model>
       </a-entity>
 
       <script>
-        // Smoothing component with threshold to reduce jittering
         AFRAME.registerComponent('smooth-motion', {
           schema: {
             smoothingFactor: {type: 'number', default: 0.1}, // Smoothing factor
-            frequency: {type: 'number', default: 60}, // Frequency of update (fps)
-            threshold: {type: 'number', default: 0.01}, // Minimum change before updating
+            frequency: {type: 'number', default: 60} // Frequency of smoothing update (frames per second)
           },
           init: function () {
             this.previousPosition = new THREE.Vector3();
-            this.previousRotation = new THREE.Euler();
             this.currentPosition = new THREE.Vector3();
-            this.currentRotation = new THREE.Euler();
             this.lastUpdate = Date.now();
           },
           tick: function () {
-            if (this.el.components['freeze-motion'] && this.el.components['freeze-motion'].isFrozen) {
-              // Stop updating if the object is frozen
-              return;
-            }
-
             var el = this.el;
             var data = this.data;
+            var smoothingFactor = data.smoothingFactor;
+            var frequency = data.frequency;
+
             var now = Date.now();
-
-            if (now - this.lastUpdate > (1000 / data.frequency)) {
-              // Get current position and rotation
+            if (now - this.lastUpdate > (1000 / frequency)) {
+              // Get the current position of the model
               var targetPosition = el.getAttribute('position');
-              var targetRotation = el.getAttribute('rotation');
-              
+
+              // Convert position to THREE.Vector3
               this.currentPosition.set(targetPosition.x, targetPosition.y, targetPosition.z);
-              this.currentRotation.set(targetRotation.x, targetRotation.y, targetRotation.z);
 
-              // Calculate the distance between current and previous positions
-              var distance = this.previousPosition.distanceTo(this.currentPosition);
+              // Smooth the position using Exponential Moving Average
+              this.previousPosition.x += smoothingFactor * (this.currentPosition.x - this.previousPosition.x);
+              this.previousPosition.y += smoothingFactor * (this.currentPosition.y - this.previousPosition.y);
+              this.previousPosition.z += smoothingFactor * (this.currentPosition.z - this.previousPosition.z);
 
-              // Only update if the position change exceeds the threshold
-              if (distance > data.threshold) {
-                // Smooth the position
-                this.previousPosition.lerp(this.currentPosition, data.smoothingFactor);
-                el.setAttribute('position', this.previousPosition);
-              }
-
-              // Smooth the rotation
-              this.previousRotation.set(
-                THREE.MathUtils.lerp(this.previousRotation.x, this.currentRotation.x, data.smoothingFactor),
-                THREE.MathUtils.lerp(this.previousRotation.y, this.currentRotation.y, data.smoothingFactor),
-                THREE.MathUtils.lerp(this.previousRotation.z, this.currentRotation.z, data.smoothingFactor)
-              );
-              el.setAttribute('rotation', {
-                x: THREE.Math.radToDeg(this.previousRotation.x),
-                y: THREE.Math.radToDeg(this.previousRotation.y),
-                z: THREE.Math.radToDeg(this.previousRotation.z)
+              // Set the smoothed position
+              el.setAttribute('position', {
+                x: this.previousPosition.x,
+                y: this.previousPosition.y,
+                z: this.previousPosition.z
               });
 
               this.lastUpdate = now;
@@ -78,48 +60,8 @@
           }
         });
 
-        // Freeze motion component to lock model in place after detection
-        AFRAME.registerComponent('freeze-motion', {
-          init: function () {
-            this.isFrozen = false;
-            this.initialPosition = null;
-            this.framesStable = 0;
-            this.stableThreshold = 10; // Number of frames to consider stable
-          },
-          tick: function () {
-            if (this.isFrozen) {
-              return; // Do nothing if already frozen
-            }
-
-            var el = this.el;
-            var targetPosition = el.getAttribute('position');
-              
-            if (!this.initialPosition) {
-              this.initialPosition = new THREE.Vector3(targetPosition.x, targetPosition.y, targetPosition.z);
-            }
-
-            // Check if the position is stable for a certain number of frames
-            if (this.isStable(targetPosition)) {
-              this.framesStable++;
-              if (this.framesStable > this.stableThreshold) {
-                this.isFrozen = true;
-                el.setAttribute('position', this.initialPosition); // Freeze at the initial position
-                el.removeAttribute('mindar-image-target'); // Remove the MindAR tracking component
-              }
-            } else {
-              this.framesStable = 0; // Reset stability counter if unstable
-            }
-          },
-          isStable: function (position) {
-            // Custom logic to determine if the position is stable.
-            var currentPosition = new THREE.Vector3(position.x, position.y, position.z);
-            var distance = this.initialPosition.distanceTo(currentPosition);
-            return distance < 0.001; // Small threshold for stability
-          }
-        });
-
-        // Attach the smoothing component to the model with custom smoothingFactor
-        document.querySelector('#model').setAttribute('smooth-motion', 'smoothingFactor', 0.5);
+        // Attach the smoothing component to the model
+        document.querySelector('#model').setAttribute('smooth-motion', 'smoothingFactor', 0.1);
       </script>
     </a-scene>
   </body>
