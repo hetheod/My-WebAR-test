@@ -21,24 +21,26 @@
     </a-scene>
 
     <script>
-      AFRAME.registerComponent('keep-model-visible', {
+      AFRAME.registerComponent('keep-visible', {
         init: function () {
-          const imageTarget = document.querySelector('#imageTarget');
-          const model = document.querySelector('#model');
-          
+          const imageTarget = this.el;  // The image target entity
+          const model = document.querySelector('#model'); // The 3D model
+
           imageTarget.addEventListener('targetFound', function () {
-            model.setAttribute('visible', 'true'); // Show model when image is found
+            // Make the model visible when the image target is found
+            model.setAttribute('visible', 'true');
           });
-          
+
           imageTarget.addEventListener('targetLost', function () {
-            // Do nothing on targetLost to keep the model visible
+            // When the target is lost, keep the model visible
+            // Remove the visibility toggle that MindAR automatically applies
+            model.setAttribute('visible', 'true');
           });
         }
       });
 
-      // Apply the custom component to keep the model visible
-      document.querySelector('#imageTarget').setAttribute('keep-model-visible', '');
+      // Apply the custom component to the image target
+      document.querySelector('#imageTarget').setAttribute('keep-visible', '');
     </script>
   </body>
 </html>
-
