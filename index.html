@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>AR with Three.js and WebXR</title>
+    <title>Image Tracking with Three.js and OpenCV.js</title>
     <style>
       body {
         margin: 0;
@@ -12,141 +12,116 @@
         display: block;
       }
     </style>
+    <!-- Include Three.js and OpenCV.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@ar-js-org/ar.js@3.3.2/aframe/build/aframe-ar.js"></script>
+    <script async src="https://docs.opencv.org/3.4.0/opencv.js"></script>
   </head>
   <body>
-    <script>a
-      let scene, camera, renderer;
-      let controller, reticle;
-      let model;
-      let modelPositionFixed = false;
-      let worldPosition, worldQuaternion, worldScale;
+    <video id="video" autoplay playsinline style="display:none;"></video>
+    <script>
+      let scene, camera, renderer, model, video, canvas, ctx;
+      let targetImage = null;
+      let videoReady = false;
+      let trackingImageDetected = false;
 
       function init() {
-        // Create scene
+        // Three.js setup
         scene = new THREE.Scene();
 
-        // Create camera
-        camera = new THREE.PerspectiveCamera(
-          70,
-          window.innerWidth / window.innerHeight,
-          0.1,
-          20
-        );
-        camera.position.set(0, 1.6, 3);
-        
-        // Create renderer with WebXR support
-        renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 100);
+        camera.position.z = 3;
+
+        renderer = new THREE.WebGLRenderer({ alpha: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.xr.enabled = true;
         document.body.appendChild(renderer.domElement);
 
-        // Add lighting
-        const ambientLight = new THREE.AmbientLight(0xffffff, 1);
-        scene.add(ambientLight);
-
-        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-        directionalLight.position.set(2, 4, 3);
-        scene.add(directionalLight);
-
-        // Create AR session button
-        document.body.appendChild(
-          ARButton.createButton(renderer, { requiredFeatures: ['hit-test'] })
-        );
-
-        // AR hit-test setup
-        let hitTestSource = null;
-        let hitTestSourceRequested = false;
-
-        // Load 3D model
+        // Load 3D model (city)
         const loader = new THREE.GLTFLoader();
         loader.load('./assets/city.glb', (gltf) => {
           model = gltf.scene;
-          model.scale.set(0.001, 0.001, 0.001);
-          model.visible = false; // Hide model initially
+          model.scale.set(0.01, 0.01, 0.01);
+          model.visible = false;
           scene.add(model);
         });
 
-        // Create reticle for hit detection
-        reticle = new THREE.Mesh(
-          new THREE.RingGeometry(0.15, 0.2, 32),
-          new THREE.MeshBasicMaterial({ color: 0x007bff })
-        );
-        reticle.matrixAutoUpdate = false;
-        reticle.visible = false;
-        scene.add(reticle);
+        // OpenCV.js setup
+        video = document.createElement('video');
+        video.setAttribute('autoplay', true);
+        video.setAttribute('playsinline', true);
+        video.style.display = 'none';
+        document.body.appendChild(video);
 
-        // XR session and hit-test event listener
-        controller = renderer.xr.getController(0);
-        controller.addEventListener('select', onSelect);
-        scene.add(controller);
+        // Canvas for OpenCV image tracking
+        canvas = document.createElement('canvas');
+        ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
 
-        function onSelect() {
-          if (model && !modelPositionFixed) {
-            const position = new THREE.Vector3();
-            const quaternion = new THREE.Quaternion();
-            const scale = new THREE.Vector3();
-
-            reticle.matrix.decompose(position, quaternion, scale);
-            model.position.copy(position);
-            model.quaternion.copy(quaternion);
-            model.visible = true; // Make the model visible after placement
-
-            // Fix the model's position after the first detection
-            worldPosition = position.clone();
-            worldQuaternion = quaternion.clone();
-            worldScale = scale.clone();
-            modelPositionFixed = true;
-          }
-        }
-
-        // Render loop
-        renderer.setAnimationLoop(function (timestamp, frame) {
-          if (modelPositionFixed) {
-            // Keep the model fixed in the last known world position, rotation, and scale
-            model.position.copy(worldPosition);
-            model.quaternion.copy(worldQuaternion);
-            model.scale.copy(worldScale);
-          }
-
-          // Request hit test source
-          if (hitTestSourceRequested === false) {
-            renderer.xr.getSession().requestReferenceSpace('viewer').then((referenceSpace) => {
-              renderer.xr.getSession().requestHitTestSource({ space: referenceSpace }).then((source) => {
-                hitTestSource = source;
-              });
-            });
-
-            renderer.xr.getSession().addEventListener('end', () => {
-              hitTestSourceRequested = false;
-              hitTestSource = null;
-            });
-
-            hitTestSourceRequested = true;
-          }
-
-          if (hitTestSource && frame) {
-            const referenceSpace = renderer.xr.getReferenceSpace();
-            const hitTestResults = frame.getHitTestResults(hitTestSource);
-
-            if (hitTestResults.length > 0) {
-              const hit = hitTestResults[0];
-              const hitMatrix = new THREE.Matrix4();
-              hitMatrix.fromArray(hit.getPose(referenceSpace).transform.matrix);
-
-              reticle.visible = true;
-              reticle.matrix.fromArray(hit.getPose(referenceSpace).transform.matrix);
-            } else {
-              reticle.visible = false;
-            }
-          }
-
-          renderer.render(scene, camera);
+        // Get camera feed
+        navigator.mediaDevices.getUserMedia({ video: true }).then((stream) => {
+          video.srcObject = stream;
+          video.play();
+          videoReady = true;
         });
+
+        // Load the target image for tracking
+        const img = new Image();
+        img.src = './assets/Tracking_Image_Mitja.jpg'; // The image to track
+        img.onload = function () {
+          targetImage = cv.imread(img); // Load target image into OpenCV
+        };
+
+        animate();
       }
 
-      init();
+      // OpenCV image detection and tracking logic
+      function detectImage() {
+        if (!videoReady || !targetImage) return false;
+
+        // Capture video frame into the canvas
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const src = cv.imread(canvas); // Read video frame as an OpenCV Mat
+
+        // Image recognition using OpenCV (ORB/SIFT-like feature matching)
+        let detector = new cv.ORB();
+        let keypoints1 = new cv.KeyPointVector();
+        let descriptors1 = new cv.Mat();
+        detector.detectAndCompute(targetImage, new cv.Mat(), keypoints1, descriptors1);
+
+        let keypoints2 = new cv.KeyPointVector();
+        let descriptors2 = new cv.Mat();
+        detector.detectAndCompute(src, new cv.Mat(), keypoints2, descriptors2);
+
+        let matcher = new cv.BFMatcher(cv.NORM_HAMMING, true);
+        let matches = new cv.DMatchVector();
+        matcher.match(descriptors1, descriptors2, matches);
+
+        // Check if enough matches found to consider the image detected
+        if (matches.size() > 10) {
+          trackingImageDetected = true;
+          return true;
+        } else {
+          trackingImageDetected = false;
+          return false;
+        }
+      }
+
+      function animate() {
+        requestAnimationFrame(animate);
+
+        if (detectImage()) {
+          // If image is detected, update the 3D model's position and visibility
+          model.visible = true;
+          // In a real case, calculate where to place the model based on keypoints or homography
+          model.position.set(0, 0, 0); // Simplified: Set model's position relative to the image detection
+        } else {
+          model.visible = false; // Hide model if image is not detected
+        }
+
+        renderer.render(scene, camera);
+      }
+
+      window.onload = init;
     </script>
   </body>
 </html>
