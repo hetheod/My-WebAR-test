@@ -1,126 +1,67 @@
 <html>
   <head>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <!-- A-Frame Library -->
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-    <!-- MindAR Library -->
-    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.3.0/dist/mindar-image-aframe.prod.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
   </head>
   <body>
-    <!-- Fallback Message -->
-    <div id="camera-error" style="display:none; color:red; text-align:center;">
-      Camera access is required to run AR. Please check your browser permissions and ensure you are using HTTPS.
-    </div>
-
-    <!-- A-Frame Scene -->
-    <a-scene
-      mindar-image="imageTargetSrc: ./assets/targets.mind; smoothCount: 5; smoothTolerance: 0.01;"
-      color-space="sRGB"
-      renderer="colorManagement: true, physicallyCorrectLights"
-      vr-mode-ui="enabled: false"
-      device-orientation-permission-ui="enabled: false"
-      embedded
-      style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"
-    >
-      <!-- Assets -->
+    <a-scene mindar-image="imageTargetSrc: ./assets/targets.mind" color-space="sRGB" renderer="colorManagement: true, physicallyCorrectLights" vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false">
       <a-assets>
         <img id="card" src="./assets/Tracking_Image_Mitja.jpg" />
         <a-asset-item id="avatarModel" src="./assets/city.glb"></a-asset-item>
       </a-assets>
 
-      <!-- Camera -->
       <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
-      <!-- MindAR Target Entity -->
-      <a-entity mindar-image-target="targetIndex: 0" id="targetEntity">
-        <!-- Plane (Optional) -->
-        <a-plane
-          id="plane"
-          src="#card"
-          position="0 0 0"
-          height="0.552"
-          width="1"
-          rotation="0 0 0"
-        ></a-plane>
-        <!-- 3D Model -->
-        <a-gltf-model
-          id="model"
-          rotation="90 90 90"
-          position="0 0 0"
-          scale="0.0005 0.0005 0.0005"
-          src="#avatarModel"
-        >
-        </a-gltf-model>
+      <a-entity id="target" mindar-image-target="targetIndex: 0">
+        <a-plane src="#card" position="0 0 0" height="0.552" width="1" rotation="0 0 0"></a-plane>
+        <a-gltf-model id="model" src="#avatarModel" position="0 0 0" rotation="0 0 0" scale="0.0001 0.0001 0.0001"></a-gltf-model>
       </a-entity>
 
-      <!-- Script -->
       <script>
-        // Check if camera access is available
-        navigator.mediaDevices
-          .getUserMedia({ video: true })
-          .then(function (stream) {
-            console.log("Camera access granted.");
-          })
-          .catch(function (err) {
-            console.log("Camera access denied: ", err);
-            document.getElementById("camera-error").style.display = "block";
-          });
-
-        // Register Component
-        AFRAME.registerComponent("persist-on-lost", {
-          init: function () {
-            const targetEntity = this.el; // The entity with mindar-image-target
-            const sceneEl = targetEntity.sceneEl;
-            const model = document.getElementById("model");
-            let isPersisted = false; // Flag to check if the model is persisted
-
-            // Event Listener for targetLost
-            targetEntity.addEventListener("targetLost", () => {
-              if (!isPersisted) {
-                // Capture world position and rotation
-                const worldPos = new THREE.Vector3();
-                const worldQuat = new THREE.Quaternion();
-                model.object3D.getWorldPosition(worldPos);
-                model.object3D.getWorldQuaternion(worldQuat);
-
-                // Reparent the model to the scene
-                targetEntity.removeChild(model);
-                sceneEl.appendChild(model);
-
-                // Set the model's world position and rotation
-                model.object3D.position.copy(worldPos);
-                model.object3D.quaternion.copy(worldQuat);
-
-                // Ensure the model is visible
-                model.setAttribute("visible", "true");
-
-                isPersisted = true; // Update the flag
-              }
-            });
-
-            // Event Listener for targetFound
-            targetEntity.addEventListener("targetFound", () => {
-              if (isPersisted) {
-                // Remove the model from the scene
-                sceneEl.removeChild(model);
-
-                // Reset model's position and rotation
-                model.setAttribute("position", "0 0 0");
-                model.setAttribute("rotation", "90 90 90");
-
-                // Reparent the model back to the target entity
-                targetEntity.appendChild(model);
-
-                isPersisted = false; // Update the flag
-              }
-            });
+        AFRAME.registerComponent('smooth-motion', {
+          schema: {
+            smoothingFactor: {type: 'number', default: 0.1}, // Smoothing factor
+            frequency: {type: 'number', default: 60} // Frequency of smoothing update (frames per second)
           },
+          init: function () {
+            this.previousPosition = new THREE.Vector3();
+            this.currentPosition = new THREE.Vector3();
+            this.lastUpdate = Date.now();
+          },
+          tick: function () {
+            var el = this.el;
+            var data = this.data;
+            var smoothingFactor = data.smoothingFactor;
+            var frequency = data.frequency;
+
+            var now = Date.now();
+            if (now - this.lastUpdate > (1000 / frequency)) {
+              // Get the current position of the model
+              var targetPosition = el.getAttribute('position');
+
+              // Convert position to THREE.Vector3
+              this.currentPosition.set(targetPosition.x, targetPosition.y, targetPosition.z);
+
+              // Smooth the position using Exponential Moving Average
+              this.previousPosition.x += smoothingFactor * (this.currentPosition.x - this.previousPosition.x);
+              this.previousPosition.y += smoothingFactor * (this.currentPosition.y - this.previousPosition.y);
+              this.previousPosition.z += smoothingFactor * (this.currentPosition.z - this.previousPosition.z);
+
+              // Set the smoothed position
+              el.setAttribute('position', {
+                x: this.previousPosition.x,
+                y: this.previousPosition.y,
+                z: this.previousPosition.z
+              });
+
+              this.lastUpdate = now;
+            }
+          }
         });
 
-        // Attach the component to the targetEntity
-        document
-          .getElementById("targetEntity")
-          .setAttribute("persist-on-lost", "");
+        // Attach the smoothing component to the model
+        document.querySelector('#model').setAttribute('smooth-motion', 'smoothingFactor', 0.1);
       </script>
     </a-scene>
   </body>
