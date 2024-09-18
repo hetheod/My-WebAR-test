@@ -19,7 +19,7 @@
   <body>
     <video id="video" autoplay playsinline style="display:none;"></video>
     <script>
-      let scene, camera, renderer, model, video, canvas, ctx;
+      let scene, camera, renderer, box, video, canvas, ctx;
       let targetImage = null;
       let videoReady = false;
       let trackingImageDetected = false;
@@ -36,14 +36,12 @@
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
-        // Load 3D model (city)
-        const loader = new THREE.GLTFLoader();
-        loader.load('./assets/city.glb', (gltf) => {
-          model = gltf.scene;
-          model.scale.set(0.01, 0.01, 0.01);
-          model.visible = false;
-          scene.add(model);
-        });
+        // Create a 3D box (initially invisible) to be displayed on top of the image
+        const geometry = new THREE.BoxGeometry(1, 1, 1); // Placeholder size
+        const material = new THREE.MeshBasicMaterial({ color: 0x00ff00, wireframe: true });
+        box = new THREE.Mesh(geometry, material);
+        box.visible = false; // Initially hidden
+        scene.add(box);
 
         // OpenCV.js setup
         video = document.createElement('video');
@@ -67,7 +65,7 @@
 
         // Load the target image for tracking
         const img = new Image();
-        img.src = './assets/targets/Tracking_Image_Mitja.jpg'; // The image to track
+        img.src = './assets/targets/targetImage.jpg'; // The image to track
         img.onload = function () {
           targetImage = cv.imread(img); // Load target image into OpenCV
           initializeFeatureDetection();
@@ -115,15 +113,18 @@
         requestAnimationFrame(animate);
 
         if (detectImage()) {
-          // If image is detected, update the 3D model's position and visibility
-          model.visible = true;
+          // If image is detected, make the 3D box visible and position it
+          box.visible = true;
 
-          // In a real case, calculate where to place the model based on keypoints or homography
-          model.position.set(0, 0, 0); // Simplified: Set model's position relative to the image detection
+          // Calculate the position and size of the box relative to the detected image
+          const boxWidth = 1; // Replace with the actual width of the detected image (scale it accordingly)
+          const boxHeight = 0.5; // Replace with the actual height of the detected image
 
-          // Optionally, calculate homography here and adjust model position/rotation
+          box.scale.set(boxWidth, boxHeight, 0.1); // Scale the box to match image dimensions
+          box.position.set(0, 0, 0); // Set the box's position at the center for simplicity
+          // You can modify the position and size based on the real-world size of the image
         } else {
-          model.visible = false; // Hide model if image is not detected
+          box.visible = false; // Hide the box if image is not detected
         }
 
         renderer.render(scene, camera);
