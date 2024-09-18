@@ -13,40 +13,49 @@
 
       <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
+      <!-- Image target entity with the target image -->
       <a-entity mindar-image-target="targetIndex: 0" id="imageTarget">
         <a-plane src="#card" position="0 0 0" height="0.552" width="1" rotation="0 0 0"></a-plane>
+      </a-entity>
+
+      <!-- Model entity separate from the image target -->
+      <a-entity id="persistentModel" visible="false">
         <a-gltf-model id="model" rotation="90 90 90" position="0 0 0" scale="0.0005 0.0005 0.0005" src="#avatarModel"></a-gltf-model>
       </a-entity>
     </a-scene>
 
     <script>
-      AFRAME.registerComponent('keep-position', {
-        schema: {
-          type: 'vec3',
-          default: {x: 0, y: 0, z: 0}
-        },
-
+      AFRAME.registerComponent('track-and-hold', {
         init: function () {
-          const imageTarget = this.el; // The image target entity
-          const model = document.querySelector('#model'); // The 3D model
-
-          // Update model position when the target is found
+          const imageTarget = document.querySelector('#imageTarget');
+          const model = document.querySelector('#persistentModel');
+          
+          // Listen for when the target is found
           imageTarget.addEventListener('targetFound', () => {
-            // Capture the world position of the model
-            const modelPosition = model.object3D.getWorldPosition(new THREE.Vector3());
-            this.data.set(modelPosition.x, modelPosition.y, modelPosition.z);
+            model.setAttribute('visible', 'true'); // Show the model
+            const targetPosition = new THREE.Vector3();
+            const modelPosition = new THREE.Vector3();
+            
+            // Capture the world position of the model relative to the target
+            imageTarget.object3D.getWorldPosition(targetPosition);
+            model.object3D.getWorldPosition(modelPosition);
+            
+            // Store the model's offset from the target
+            modelPosition.sub(targetPosition);
+            model.setAttribute('data-offset', JSON.stringify(modelPosition));
           });
 
-          // Keep the model at the captured position
+          // When the target is lost, move the model to its last known position
           imageTarget.addEventListener('targetLost', () => {
-            const modelPosition = new THREE.Vector3().fromArray(this.data);
+            const offset = JSON.parse(model.getAttribute('data-offset'));
+            const modelPosition = new THREE.Vector3().fromArray(offset);
             model.object3D.position.set(modelPosition.x, modelPosition.y, modelPosition.z);
           });
         }
       });
 
-      // Apply the custom component to the image target
-      document.querySelector('#imageTarget').setAttribute('keep-position', '');
+      // Apply the custom component to manage model visibility and position
+      document.querySelector('#imageTarget').setAttribute('track-and-hold', '');
     </script>
   </body>
 </html>
